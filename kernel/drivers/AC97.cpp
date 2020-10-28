@@ -39,14 +39,14 @@ AC97::AC97(DeviceAddress address) : PCIDevice(address, DeviceClass::SOUND)
     // get native audio bus master bar and native audio mixer bar
     nabmbar = bar(1).base();
     nambar = bar(0).base();
-    lvi = -1;
+    lvi = 0;
 
     //  enable all device interrupts
-    out8(nabmbar + AC97_PO_CR, AC97_X_CR_FEIE | AC97_X_CR_IOCE | AC97_X_CR_LVBIE);
+    out8(nabmbar + AC97_PO_CR, AC97_X_CR_FEIE | AC97_X_CR_IOCE);
     // out8(nabmbar + AC97_PO_CR, 0 << 4);
     pci_address().write16(PCI_COMMAND, 0x5);
 
-    // out8(nabmbar + 0x60, 0x02);
+    out8(nabmbar + 0x60, 0x02);
     // default the pcm output to full volume
     out16(nambar + AC97_PCM_OUT_VOLUME, 0x0000);
 
@@ -54,8 +54,9 @@ AC97::AC97(DeviceAddress address) : PCIDevice(address, DeviceClass::SOUND)
 
     // tell the ac97 where buffer descriptor list is
     out32(nabmbar + AC97_PO_BDBAR, buffer_descriptors_range->physical_base());
+
     // set last valid index
-    // lvi = 2;
+    lvi = 2;
     out8(nabmbar + AC97_PO_LVI, lvi);
 
     // detect wheter device supports MSB
@@ -100,7 +101,8 @@ void AC97::initialise_buffers()
         buffer_descriptors_list[i].pointer = buffers[i]->physical_base();
         AC97_CL_SET_LENGTH(buffer_descriptors_list[i].cl, 0);
         /* Set all buffers to interrupt */
-        // buffer_descriptors_list[i].cl |= AC97_CL_IOC;s
+        buffer_descriptors_list[i].cl |= AC97_CL_IOC;
+        // s
     }
 }
 
@@ -108,16 +110,12 @@ AC97::~AC97() { ; }
 
 void AC97::handle_interrupt()
 {
-    logger_trace("interrupt received");
+    // logger_trace("interrupt received");
     uint16_t sr = in16(nabmbar + AC97_PO_SR);
     if (!sr)
     {
         return;
     }
-    // else
-    // {
-    //     playing = false;
-    // }
 
     if (sr & AC97_X_SR_BCIS)
     {
@@ -140,7 +138,7 @@ void AC97::handle_interrupt()
         /* don't handle it */
         return;
     }
-    logger_trace("ac97 status register: %08x, %d", sr, sr);
+    // logger_trace("ac97 status register: %08x, %d", sr, sr);
 
     // clear interrupt bits
     out16(nabmbar + AC97_PO_SR, sr & 0x1E);
@@ -167,23 +165,27 @@ ResultOr<size_t> AC97::write(FsHandle &handle, const void *buffer, size_t size)
     size_t return_size = 0;
     logger_trace("in write for ac97 %d ", size);
     int j = 0;
-    for (int i = (lvi + 1) % AC97_BDL_LEN; size || j < 31; i++, j++)
+    for (int i = (lvi % AC97_BDL_LEN); size && j < 32; i++, j++)
     {
         if (size >= AC97_BDL_BUFFER_LEN)
         {
             logger_trace("inhere");
+            buffers[i]->write(0, buffer, AC97_BDL_BUFFER_LEN);
             AC97_CL_SET_LENGTH(buffer_descriptors_list[i % AC97_BDL_LEN].cl, AC97_BDL_BUFFER_LEN >> 1);
             return_size += size;
             size -= AC97_BDL_BUFFER_LEN;
-            buffers[i]->write(0, buffer, AC97_BDL_BUFFER_LEN);
         }
         else
         {
-
+            if (size % 2)
+            {
+                size += 1;
+            }
             return_size += size;
+            buffers[i % AC97_BDL_LEN]->write(0, buffer, size);
             AC97_CL_SET_LENGTH(buffer_descriptors_list[i % AC97_BDL_LEN].cl, size >> 1);
             logger_trace("here buffer len %d", AC97_CL_GET_LENGTH(buffer_descriptors_list[i % AC97_BDL_LEN].cl));
-            buffers[i % AC97_BDL_LEN]->write(0, buffer, size);
+
             // buffer_descriptors_list[i % AC97_BDL_LEN].cl |= AC97_CL_IOC;
             size = 0;
         }
@@ -205,6 +207,7 @@ ResultOr<size_t> AC97::write(FsHandle &handle, const void *buffer, size_t size)
     out8(nabmbar + AC97_PO_CR, AC97_PO_LVI);
 
     logger_trace("out for ac97 %d %x", lvi, buffers[lvi]->physical_base());
+    lvi += 2;
     return return_size;
 }
 
