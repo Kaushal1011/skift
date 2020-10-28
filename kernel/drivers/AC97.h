@@ -26,7 +26,7 @@
 /* Bus mastering misc */
 /* Buffer descriptor list constants */
 #define AC97_BDL_LEN 32                               /* Buffer descriptor list length */
-#define AC97_BDL_BUFFER_LEN 0x1000                    /* Length of buffer in BDL */
+#define AC97_BDL_BUFFER_LEN 0xF000                    /* Length of buffer in BDL */
 #define AC97_CL_GET_LENGTH(cl) ((cl)&0xFFFF)          /* Decode length from cl */
 #define AC97_CL_SET_LENGTH(cl, v) ((cl) = (v)&0xFFFF) /* Encode length to cl */
 #define AC97_CL_BUP ((uint32_t)1 << 30)               /* Buffer underrun policy in cl */
@@ -85,7 +85,7 @@
 
 struct __packed AC97BufferDescriptor
 {
-    uint32_t pointer;
+    uintptr_t pointer;
     uint32_t cl;
     // void *buffer;
     // uint32_t length;
