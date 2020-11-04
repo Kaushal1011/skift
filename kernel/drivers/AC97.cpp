@@ -105,6 +105,16 @@ void AC97::initialise_buffers()
 
 AC97::~AC97() { ; }
 
+void AC97::query_from_buffer(void *destination, size_t size)
+{
+    size_t writtent = _buffer.read((char *)destination, size);
+
+    if (writtent < (AC97_BDL_BUFFER_LEN * sizeof(uint16_t)))
+    {
+        memset((char *)destination + writtent, 0, (AC97_BDL_BUFFER_LEN * sizeof(uint16_t)) - writtent);
+    }
+}
+
 void AC97::handle_interrupt()
 {
     // logger_trace("interrupt received");
@@ -122,34 +132,11 @@ void AC97::handle_interrupt()
         if (size >= AC97_BDL_BUFFER_LEN)
         {
             logger_trace("inhere %d", lvi);
-
-            _buffer.read((char *)read_buffer, AC97_BDL_BUFFER_LEN);
-
-            buffers[lvi]->write(0, read_buffer, AC97_BDL_BUFFER_LEN);
+            query_from_buffer((void *)buffers[lvi]->base(), AC97_BDL_BUFFER_LEN);
             AC97_CL_SET_LENGTH(buffer_descriptors_list[lvi].cl, AC97_BDL_BUFFER_LEN >> 1);
             buffer_descriptors_list[(lvi) % AC97_BDL_LEN].cl |= AC97_CL_IOC;
-
             out8(nabmbar + AC97_PO_LVI, lvi);
-            out8(nabmbar + AC97_PO_CR, AC97_PO_LVI);
-            lvi = (lvi + 2) % AC97_BDL_LEN;
-        }
-        else if (size > 0)
-        {
-
-            logger_trace("here %d %d", lvi, size);
-
-            _buffer.read((char *)read_buffer, size);
-
-            buffers[lvi]->write(0, read_buffer, size);
-
-            AC97_CL_SET_LENGTH(buffer_descriptors_list[lvi].cl, (size - 2) >> 1);
-            buffer_descriptors_list[(lvi) % AC97_BDL_LEN].cl |= (AC97_CL_IOC | AC97_CL_BUP);
-
-            out32(nabmbar + AC97_PO_BDBAR, buffer_descriptors_range->physical_base());
-            out8(nabmbar + AC97_PO_LVI, lvi);
-            out8(nabmbar + AC97_PO_CR, AC97_PO_LVI);
-            lvi = (lvi + 2) % AC97_BDL_LEN;
-            // playing = false;
+            lvi = (lvi + 1) % AC97_BDL_LEN;
         }
         else
         {
@@ -195,12 +182,13 @@ ResultOr<size_t> AC97::write(FsHandle &handle, const void *buffer, size_t size)
 
     size_t return_size = 0;
 
-    if (!playing && (_buffer.used() <= 2 * AC97_BDL_BUFFER_LEN))
-    {
-        return_size = _buffer.write((char *)buffer, size);
-        logger_trace("inital sound buffer fill");
-    }
-    else if (!playing && (_buffer.used() > 2 * AC97_BDL_BUFFER_LEN))
+    // if (!playing && (_buffer.used() <= 2 * AC97_BDL_BUFFER_LEN))
+    // {
+    //     return_size = _buffer.write((char *)buffer, size);
+    //     logger_trace("inital sound buffer fill");
+    // }
+    // else
+    if (!playing)
     {
         return_size = _buffer.write((char *)buffer, size);
 
