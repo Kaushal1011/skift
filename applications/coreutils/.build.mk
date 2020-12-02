@@ -34,7 +34,8 @@ UTILS = \
 	FALSE \
 	YES \
 	PWD	\
-	PLAY
+	PLAY \
+	MIXPLAY 
 
 __TESTEXEC_LIBS =
 __TESTEXEC_NAME = __testexec
@@ -143,6 +144,9 @@ YES_NAME = yes
 
 PWD_LIBS =
 PWD_NAME = pwd
+
+MIXPLAY_LIBS = 
+MIXPLAY_NAME = mixplay
 
 define UTIL_TEMPLATE =
 

@@ -6,60 +6,69 @@
 #include <libsystem/utils/Hexdump.h>
 #include <libsystem/utils/List.h>
 
-void client_request_callback(Client *client, Connection *connection, PollEvent events)
-{
-    assert(events & POLL_READ);
+// void client_request_callback(Client *client, Connection *connection, PollEvent events)
+// {
+//     assert(events & POLL_READ);
 
-    MixerMessage message = {};
-    size_t message_size = connection_receive(connection, &message, sizeof(MixerMessage));
+//     if (client->mixed == 0 && client->signals_waiting == 0)
+//     {
+//         MixerMessage message = {};
+//         size_t message_size = connection_receive(connection, &message, sizeof(MixerMessage));
 
-    if (handle_has_error(connection))
-    {
-        logger_error("Client handle has error: %s!", handle_error_string(connection));
+//         logger_trace("message received from: %08x", connection);
 
-        client->disconnected = true;
-        // client_destroy_disconnected();
-        return;
-    }
+//         if (handle_has_error(connection))
+//         {
+//             logger_error("Client handle has error: %s!", handle_error_string(connection));
 
-    if (message_size != sizeof(MixerMessage))
-    {
-        logger_error("Got a message with an invalid size from client %u != %u!", sizeof(MixerMessage), message_size);
-        hexdump(&message, message_size);
+//             client->disconnected = true;
+//             // client_destroy_disconnected();
+//             return;
+//         }
 
-        client->disconnected = true;
-        // client_destroy_disconnected();
+//         if (message_size != sizeof(MixerMessage))
+//         {
+//             logger_error("Got a message with an invalid size from client %u != %u!", sizeof(MixerMessage), message_size);
+//             hexdump(&message, message_size);
 
-        return;
-    }
+//             client->disconnected = true;
+//             // client_destroy_disconnected();
 
-    if (message.type == MIXER_MESSAGE_AUDIODATA)
-    {
-        if (client->mixed == 0)
-        {
-            client->mixed = 1;
-            for (int i = 0; i < AUDIO_DATA_MESSAGE_SIZE; i++)
-            {
-                Client::mixed_buffer[i] = Client::mixed_buffer[i] + (message.audiodata.audiodata[i] / 1.5);
-            }
-        }
-        else
-        {
-            client->signals_waiting += 1;
-        }
-    }
-    else if (message.type == MIXER_MESSAGE_DISCONNECT)
-    {
-        client->disconnected = true;
-        // client_destroy_disconnected();
-    }
-}
+//             return;
+//         }
+
+//         if (message.type == MIXER_MESSAGE_AUDIODATA)
+//         {
+
+//             client->mixed = 1;
+//             for (int i = 0; i < AUDIO_DATA_MESSAGE_SIZE; i++)
+//             {
+//                 client->mixed_buffer[i] = client->mixed_buffer[i] + message.audiodata.audiodata[i];
+//             }
+//             return;
+//         }
+
+//         if (message.type == MIXER_MESSAGE_DISCONNECT)
+//         {
+//             client->disconnected = true;
+//             return;
+//             // client_destroy_disconnected();
+//         }
+//     }
+//     else
+//     {
+//         client->signals_waiting += 1;
+//         return;
+//     }
+// }
 
 void Client::receive_message()
 {
     MixerMessage message = {};
     size_t message_size = connection_receive(connection, &message, sizeof(MixerMessage));
 
+    // logger_trace("In receive message, message received from: %08x", connection);
+    // logger_trace("Received message: %s , %d ", message.audiodata.audiodata, message.type);
     if (handle_has_error(connection))
     {
         logger_error("Client handle has error: %s!", handle_error_string(connection));
@@ -87,7 +96,7 @@ void Client::receive_message()
             mixed = 1;
             for (int i = 0; i < AUDIO_DATA_MESSAGE_SIZE; i++)
             {
-                Client::mixed_buffer[i] = Client::mixed_buffer[i] + (message.audiodata.audiodata[i] / 1.5);
+                mixed_buffer[i] = mixed_buffer[i] + message.audiodata.audiodata[i];
             }
         }
         else
@@ -100,21 +109,29 @@ void Client::receive_message()
         disconnected = true;
         // client_destroy_disconnected();
     }
+    else
+    {
+        logger_trace("invalid type received");
+    }
 }
 
-Client::Client(Connection *connection)
+Client::Client(Connection *connection, char *buffer)
 {
 
     this->connection = connection;
-    this->notifier = notifier_create(
-        this,
-        HANDLE(connection),
-        POLL_READ,
-        (NotifierCallback)client_request_callback);
+    // this->notifier = notifier_create(
+    //     this,
+    //     HANDLE(connection),
+    //     POLL_READ,
+    //     (NotifierCallback)client_request_callback);
+    this->mixed_buffer = buffer;
     logger_info("Client %08x connected", this);
     connected_clients++;
+
     MixerMessage a = MixerMessage();
     a.type = MIXER_MESSAGE_GREETINGS;
+    strlcpy(a.audiodata.audiodata, "\0", 1);
+
     this->send_message(a);
 }
 

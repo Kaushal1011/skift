@@ -1,6 +1,6 @@
 #pragma once
 
-#define AUDIO_DATA_MESSAGE_SIZE 0x4000
+#define AUDIO_DATA_MESSAGE_SIZE 1020
 
 enum MixerMessageType
 {
