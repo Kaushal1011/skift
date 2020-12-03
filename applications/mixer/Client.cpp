@@ -66,7 +66,8 @@ void Client::receive_message()
 {
     MixerMessage message = {};
     size_t message_size = connection_receive(connection, &message, sizeof(MixerMessage));
-
+    uint16_t mix;
+    uint16_t incoming_data;
     // logger_trace("In receive message, message received from: %08x", connection);
     // logger_trace("Received message: %s , %d ", message.audiodata.audiodata, message.type);
     if (handle_has_error(connection))
@@ -94,9 +95,18 @@ void Client::receive_message()
         if (mixed == 0)
         {
             mixed = 1;
-            for (int i = 0; i < AUDIO_DATA_MESSAGE_SIZE; i++)
+            for (int i = 0; i < AUDIO_DATA_MESSAGE_SIZE; i += 2)
             {
-                mixed_buffer[i] = mixed_buffer[i] + message.audiodata.audiodata[i];
+                // 16 bit little endian mix logic
+                mix = mixed_buffer[i + 1];
+                mix = mix << 8;
+                mix += mixed_buffer[i];
+                incoming_data = message.audiodata.audiodata[i + 1];
+                incoming_data = incoming_data << 8;
+                incoming_data += message.audiodata.audiodata[i];
+                mix += incoming_data;
+                mixed_buffer[i] = mix & 0x00FF;
+                mixed_buffer[i + 1] = (mix & 0xFF00) >> 8;
             }
         }
         else
