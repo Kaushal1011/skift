@@ -35,7 +35,11 @@ UTILS = \
 	YES \
 	PWD	\
 	PLAY \
+<<<<<<< HEAD
 	PIANO
+=======
+	MIXPLAY 
+>>>>>>> 90485a20... mixer : works but ipc slower than ac97 consumption
 
 __TESTEXEC_LIBS =
 __TESTEXEC_NAME = __testexec
@@ -147,6 +151,9 @@ PWD_NAME = pwd
 
 PIANO_LIBS = 
 PIANO_NAME = piano
+
+MIXPLAY_LIBS = 
+MIXPLAY_NAME = mixplay
 
 define UTIL_TEMPLATE =
 

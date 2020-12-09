@@ -9,7 +9,7 @@
 class Client
 {
 public:
-    static char mixed_buffer[AUDIO_DATA_MESSAGE_SIZE];
+    char *mixed_buffer;
 
     static int connected_clients;
 
@@ -22,7 +22,7 @@ public:
     // counting semaphore
     int signals_waiting;
 
-    Client(Connection *connection);
+    Client(Connection *connection, char *mixed_buffer);
 
     ~Client();
     void receive_message();
